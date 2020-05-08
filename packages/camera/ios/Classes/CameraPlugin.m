@@ -14,6 +14,31 @@ static FlutterError *getFlutterError(NSError *error) {
                              details:error.domain];
 }
 
+static UIImage *cropSquareImage(UIImage *inputImage) {
+
+  CGFloat width = CGImageGetWidth(inputImage.CGImage);
+  CGFloat height = CGImageGetHeight(inputImage.CGImage);
+  CGFloat minSide = MIN(width, height);
+
+   CGRect cropRect = CGRectMake( (width - minSide) / 2.0,
+                                 (height - minSide) / 2.0,
+                                 minSide,
+                                 minSide );
+
+    // Perform cropping in Core Graphics
+    CGImageRef cutImageRef = CGImageCreateWithImageInRect(inputImage.CGImage, cropRect);
+    
+    // Convert back to UIImage
+    UIImage* croppedImage = [UIImage imageWithCGImage:cutImageRef
+                                                scale:inputImage.scale
+                                          orientation:inputImage.imageOrientation];
+    
+    // Clean up reference pointers
+    CGImageRelease(cutImageRef);
+    
+    return croppedImage;
+}
+
 @interface FLTSavePhotoDelegate : NSObject <AVCapturePhotoCaptureDelegate>
 @property(readonly, nonatomic) NSString *path;
 @property(readonly, nonatomic) FlutterResult result;
@@ -81,7 +106,15 @@ static FlutterError *getFlutterError(NSError *error) {
                                        scale:1.0
                                  orientation:[self getImageRotation]];
   // TODO(sigurdm): Consider writing file asynchronously.
-  bool success = [UIImageJPEGRepresentation(image, 1.0) writeToFile:_path atomically:YES];
+
+  // #eduribas - crop image to square
+  // CGFloat minSide = MIN(image.size.width, image.size.height) - 2;
+  UIImage *squareImage = cropSquareImage(image);
+
+  // #eduribas - change compression to 0.8
+  // bool success = [UIImageJPEGRepresentation(image, 1.0) writeToFile:_path atomically:YES];  
+  bool success = [UIImageJPEGRepresentation(squareImage, 0.8) writeToFile:_path atomically:YES];  
+
   if (!success) {
     _result([FlutterError errorWithCode:@"IOError" message:@"Unable to write file" details:nil]);
     return;
@@ -288,7 +321,16 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
 - (void)setCaptureSessionPreset:(ResolutionPreset)resolutionPreset {
   switch (resolutionPreset) {
     case max:
-      if ([_captureSession canSetSessionPreset:AVCaptureSessionPresetHigh]) {
+      // #eduribas - start
+      if ([_captureSession canSetSessionPreset:AVCaptureSessionPresetPhoto]) {
+        _captureSession.sessionPreset = AVCaptureSessionPresetPhoto;
+        _previewSize =
+            CGSizeMake(_captureDevice.activeFormat.highResolutionStillImageDimensions.width,
+                       _captureDevice.activeFormat.highResolutionStillImageDimensions.height);
+        break;
+      }
+      // #eduribas - end
+      else if ([_captureSession canSetSessionPreset:AVCaptureSessionPresetHigh]) {
         _captureSession.sessionPreset = AVCaptureSessionPresetHigh;
         _previewSize =
             CGSizeMake(_captureDevice.activeFormat.highResolutionStillImageDimensions.width,

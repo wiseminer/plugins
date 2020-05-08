@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /** Provides various utilities for camera. */
 public final class CameraUtils {
@@ -39,6 +40,21 @@ public final class CameraUtils {
     return Collections.max(
         Arrays.asList(streamConfigurationMap.getOutputSizes(ImageFormat.JPEG)),
         new CompareSizesByArea());
+  }
+
+  static Size computeBestSquareCaptureSize(StreamConfigurationMap streamConfigurationMap) {
+    List<Size> squareSizes = new ArrayList<>();
+    for (Size size : streamConfigurationMap.getOutputSizes(ImageFormat.JPEG)) {
+      if (size.getWidth() == size.getHeight()) {
+        squareSizes.add(size);
+      }
+    }
+    if (squareSizes.isEmpty()) {
+      return null;
+    }
+    else {
+      return Collections.max(squareSizes, new CompareSizesByArea());
+    }
   }
 
   public static List<Map<String, Object>> getAvailableCameras(Activity activity)
